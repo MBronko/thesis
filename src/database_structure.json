@@ -1,0 +1,24 @@
+{
+  "tables": {
+    "table1": {
+      "columns": {
+        "col1": {
+          "type": "STRING"
+        },
+        "col2": {
+          "type": "INT"
+        }
+      }
+    },
+    "table2": {
+      "columns": {
+        "col3": {
+          "type": "FLOAT"
+        },
+        "col4": {
+          "type": "JSON"
+        }
+      }
+    }
+  }
+}

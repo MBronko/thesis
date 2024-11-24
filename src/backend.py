@@ -1,47 +1,63 @@
 import redis
 import os
 import json
-from src.database_structure import DatabaseStructure, Table, Column
-from exceptions import BackendConnectionException
+from src.database_structure import DatabaseStructure, TableStructure, ColumnStructure, ColumnTypeMetadata
+from src.basic_models import Table, Field
+from src.exceptions import BackendConnectionException
 
 
-class Backend:
-    def __init__(self):
-        self.connection = redis.Redis(host=os.environ["REDIS_HOST"], port=os.environ["REDIS_PORT"],
+class BackendConnection:
+    def __init__(self, host, port):
+        self.connection = redis.Redis(host=host, port=port,
                                       decode_responses=True)
         self.connection.ping()  # throws redis.exceptions.ConnectionError if ping fails
 
         self.db_structure = self.read_db_structure()
 
     def read_db_structure(self):
-        db_structure_str = self.get(os.environ["DATABASE_METADATA_KEY"])
+        db_structure_str = self.connection.get(os.environ["DATABASE_METADATA_KEY"])
 
         if db_structure_str is None or len(db_structure_str) == 0:
             raise BackendConnectionException("Can't obtain database metadata")
 
         db_structure_json = json.loads(db_structure_str)
 
-        return DatabaseStructure(**db_structure_json)
+        return DatabaseStructure(db_structure_json)
 
     def save_db_structure(self):
         db_structure_json = self.db_structure.to_json()
-        self.set(os.environ["DATABASE_METADATA_KEY"], str(db_structure_json))
+        self.connection.set(os.environ["DATABASE_METADATA_KEY"], str(db_structure_json))
 
-    def get(self, key: str) -> str:
-        return self.connection.get(key)
+    def get_table_structure(self, table: Table) -> TableStructure:
+        return self.db_structure.tables[table.name]
 
-    def set(self, key: str, value: str) -> None:
-        self.connection.set(key, value)
+    def get_column_structure(self, column: Field) -> ColumnStructure:
+        return self.get_table_structure(column.table).columns[column.name]
 
-    def get_next_id(self, table: Table) -> int:
-        next_id = table.next_id
-        table.next_id += 1
-        self.save_db_structure()
-        return next_id
+    def get_key(self, field: Field):
+        return f"{field.table.name}:{field.name}:{field.table.id}"
 
-    def get_table(self, name: str) -> Table:
-        return self.db_structure.tables[name]
+    def get(self, column: Field) -> str:
+        column_structure = self.get_column_structure(column)
 
-    def get_column(self, name) -> Column:
-        table, column = name.split(".")
-        return self.get_table(table).columns[column]
+        result = self.connection.get(self.get_key(column))
+
+        deserializer = column_structure.get_data_deserializer()
+
+        return deserializer(result)
+
+    def set(self, column: Field, value) -> None:
+        table = column.table
+
+        table_structure = self.get_table_structure(table)
+        column_structure = self.get_column_structure(column)
+
+        if table.id is None or table.id == 0:
+            table.id = table_structure.get_next_id()
+            self.save_db_structure()
+
+        serializer = column_structure.get_data_serializer()
+
+        value = serializer(value)
+
+        self.connection.set(self.get_key(column), value)

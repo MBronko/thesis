@@ -9,15 +9,10 @@ class Identifier:
 
 @dataclass
 class Table(Identifier):
-    pass
+    id: int = 0
 
 
 @dataclass
-class Column(Identifier):
+class Field(Identifier):
     table: Table
-
-
-@dataclass
-class InsertStatement:
-    table: Table
-    values: list[list]
+    value: any = None

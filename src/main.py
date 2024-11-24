@@ -1,21 +1,38 @@
 from dotenv import load_dotenv
-from backend import Backend
-from src.parser import SQL
+from parser import parse
+import os
+
+from src.backend import BackendConnection
+
 
 def main():
     load_dotenv()
 
-    backend = Backend()
+    host = os.environ["REDIS_HOST"]
+    port = os.environ["REDIS_PORT"]
 
-    sql = SQL(backend)
-    sql.parse("""INSERT INTO table1
+    backend_metadata = BackendConnection(host, port)
+
+    # sql = SQL(backend)
+    print(backend_metadata.db_structure.to_json())
+
+    statements = parse("""INSERT INTO table1
     VALUES ('test1`', 1), ('test2', 2)""")
 
-    sql.parse("""INSERT INTO table2 t
+    for statement in statements:
+        statement.eval(backend_metadata)
+
+    statements = parse("""INSERT INTO table2 t
     VALUES (1.5, '{}'), (2.5, '[]')""")
 
-    sql.parse("""INSERT INTO table1 as t
+    for statement in statements:
+        statement.eval(backend_metadata)
+
+    statements = parse("""INSERT INTO table1 as t
     VALUES ('test1`', 1), ('test2', 2)""")
+
+    for statement in statements:
+        statement.eval(backend_metadata)
 
     # print(backend.read_db_structure())
 

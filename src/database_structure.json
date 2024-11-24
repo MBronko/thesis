@@ -1,24 +1,33 @@
+
 {
-  "tables": {
-    "table1": {
-      "columns": {
-        "col1": {
+  "tables": [
+    {
+      "next_id": 1,
+      "name": "table1",
+      "columns": [
+        {
+          "name": "col1",
           "type": "STRING"
         },
-        "col2": {
+        {
+          "name": "col2",
           "type": "INT"
         }
-      }
+      ]
     },
-    "table2": {
-      "columns": {
-        "col3": {
+    {
+      "next_id": 1,
+      "name": "table2",
+      "columns": [
+        {
+          "name": "col3",
           "type": "FLOAT"
         },
-        "col4": {
+        {
+          "name": "col4",
           "type": "JSON"
         }
-      }
+      ]
     }
-  }
+  ]
 }

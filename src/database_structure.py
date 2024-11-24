@@ -1,8 +1,9 @@
-from dataclasses import dataclass, asdict
 from enum import StrEnum
 
 from datetime import datetime
 import json
+from typing import Dict, List
+from basic_models import Table, Field
 
 
 class ColumnType(StrEnum):
@@ -14,20 +15,6 @@ class ColumnType(StrEnum):
 
 
 class ColumnTypeMetadata:
-    data_type = {
-        ColumnType.STRING: str,
-        ColumnType.INT: int,
-        ColumnType.FLOAT: float,
-        ColumnType.DATE: datetime,
-        ColumnType.JSON: str,
-    }
-    data_parser = {
-        ColumnType.STRING: str,
-        ColumnType.INT: int,
-        ColumnType.FLOAT: float,
-        ColumnType.DATE: datetime,
-        ColumnType.JSON: json.loads,
-    }
     data_serializer = {
         ColumnType.STRING: str,
         ColumnType.INT: str,
@@ -35,31 +22,88 @@ class ColumnTypeMetadata:
         ColumnType.DATE: lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S'),
         ColumnType.JSON: json.dumps,
     }
+    data_deserializer = {
+        ColumnType.STRING: str,
+        ColumnType.INT: int,
+        ColumnType.FLOAT: float,
+        ColumnType.DATE: datetime,
+        ColumnType.JSON: json.loads,
+    }
 
 
-@dataclass
-class Column:
-    type: ColumnType
-
-    def __post_init__(self):
-        self.type = ColumnType[self.type]
-
-
-@dataclass
-class Table:
-    columns: dict[str, Column]
-    next_id: int = 1
-
-    def __post_init__(self):
-        self.columns = {name: Column(**column) for name, column in self.columns.items()}
-
-
-@dataclass
-class DatabaseStructure:
-    tables: dict[str, Table]
-
-    def __post_init__(self):
-        self.tables = {name: Table(**table) for name, table in self.tables.items()}
+class Entity:
+    def to_dict(self):
+        return self.__dict__.copy()
 
     def to_json(self):
-        return json.dumps(asdict(self))
+        return json.dumps(self.to_dict())
+
+
+class ColumnStructure(Entity):
+    table_structure: 'TableStructure'
+    name: str
+    type: ColumnType
+
+    def __init__(self, table_structure: 'TableStructure', column_dict: dict):
+        self.table_structure = table_structure
+        self.name = column_dict["name"]
+        self.type = ColumnType[column_dict["type"]]
+
+    def get_field_object(self, table: Table) -> Field:
+        return Field(self.name, self.name, table)
+
+    def get_data_serializer(self):
+        return ColumnTypeMetadata.data_serializer[self.type]
+
+    def get_data_deserializer(self):
+        return ColumnTypeMetadata.data_deserializer[self.type]
+
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "type": self.type
+        }
+
+
+class TableStructure(Entity):
+    name: str
+    next_id: int
+    columns: Dict[str, ColumnStructure]
+
+    def __init__(self, table_dict: dict):
+        self.name = table_dict["name"]
+        self.next_id = table_dict["next_id"]
+        self.columns = {column_dict["name"]: ColumnStructure(self, column_dict) for column_dict in
+                        table_dict["columns"]}
+
+    def get_table_object(self) -> Table:
+        return Table(self.name, self.name)
+
+    def get_field_objects(self) -> list[Field]:
+        table = self.get_table_object()
+
+        return [column_structure.get_field_object(table) for column_structure in self.columns.values()]
+
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "next_id": self.next_id,
+            "columns": [column.to_dict() for column in self.columns.values()]
+        }
+
+    def get_next_id(self) -> int:
+        next_id = self.next_id
+        self.next_id += 1
+        return next_id
+
+
+class DatabaseStructure(Entity):
+    tables: Dict[str, TableStructure]
+
+    def __init__(self, database_dict: dict):
+        self.tables = {table["name"]: TableStructure(table) for table in database_dict["tables"]}
+
+    def to_dict(self):
+        return {
+            "tables": [table.to_dict() for table in self.tables.values()]
+        }

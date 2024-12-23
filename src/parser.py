@@ -1,5 +1,7 @@
 import sqlparse
+
 from statements import *
+
 
 def parse(query: str):
     query = sqlparse.format(query, strip_comments=True, compact=True)
@@ -10,14 +12,13 @@ def parse(query: str):
     for statement in statements:
         statement_parsers = {
             "INSERT": InsertStatement,
-            "SELECT": InsertStatement,
+            "SELECT": SelectStatement,
             "UPDATE": InsertStatement
         }
 
         results.append(statement_parsers[statement.get_type()].parse(statement))
 
     return results
-
 
 # import sqlparse
 # from sqlparse.sql import Statement, Token, Identifier, Values

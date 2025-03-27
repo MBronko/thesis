@@ -14,11 +14,20 @@ class BackendConnection:
 
         self.db_structure = self.read_db_structure()
 
+
+    def initialize_db_structure(self):
+        with open("../database_structure.json", "r") as in_file:
+            initial_structure = "".join(in_file.readlines())
+
+            self.connection.set(os.environ["DATABASE_METADATA_KEY"], initial_structure)
+            return initial_structure
+
+
     def read_db_structure(self):
         db_structure_str = self.connection.get(os.environ["DATABASE_METADATA_KEY"])
 
         if db_structure_str is None or len(db_structure_str) == 0:
-            raise BackendConnectionException("Can't obtain database metadata")
+            db_structure_str = self.initialize_db_structure()
 
         db_structure_json = json.loads(db_structure_str)
 
